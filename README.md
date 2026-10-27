@@ -77,7 +77,8 @@ Parallel work: the lead chat launches several `omc-*` subagents in one message, 
 ```
 .cursor-plugin/plugin.json   plugin manifest
 rules/omc.mdc                orchestration rule (always applied)
-agents/omc-*.md              subagents
+subagents/omc-*.md           Cursor subagents
+agents/<name>.md             runtime worker prompts (OMC CLI loads them by upstream name)
 skills/<name>/SKILL.md       skills
 commands/                    psm, omc-compact
 hooks/hooks.json             native Cursor hooks -> cursor/hook.mjs

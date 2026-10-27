@@ -31,7 +31,7 @@ exports `OMC_PLUGIN_ROOT=<path>` once in the shell).
 `node "$OMC_PLUGIN_ROOT/bridge/cli.cjs"`. Commands that spawn `claude` CLI sessions are
 Claude-only; prefer `cursor-agent` where the CLI offers it (`omc team N:cursor ...`).
 
-**Subagents.** Files in `agents/` with frontmatter `name`, `description`,
+**Subagents.** Files in `subagents/` (plugin.json `agents`; `agents/<name>.md` are the runtime's worker prompts under upstream names) with frontmatter `name`, `description`,
 `model: inherit`, optional `readonly: true`, `is_background`. All OMC agents are named
 `omc-<role>` (`omc-executor`, `omc-planner`, `omc-architect`, `omc-critic`, …) and all
 use `model: inherit` — there are no haiku/sonnet/opus tiers. The parent invokes them

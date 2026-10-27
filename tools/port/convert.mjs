@@ -4,7 +4,8 @@
  *
  *   node tools/port/convert.mjs <path-to-oh-my-claudecode-checkout>
  *
- * Writes agents/omc-*.md and skills/<name>/ into the plugin root. Files under
+ * Writes subagents/omc-*.md (Cursor subagents), agents/<name>.md (runtime
+ * prompts) and skills/<name>/ into the plugin root. Files under
  * cursor/overrides/ are hand-ported (team, omc-setup, hud, ...) and are copied
  * over the mechanical output last, so re-running after an upstream update keeps
  * them. Re-run, then review `git diff` and update overrides where upstream
@@ -229,11 +230,17 @@ function writeFile(path, content) {
 export function port(upstream) {
   const report = { agents: 0, skills: 0, files: 0, commands: 0, overrides: 0 };
 
+  // subagents/omc-<name>.md are the Cursor subagents (plugin.json "agents").
+  // agents/<name>.md keep upstream names because the OMC runtime loads worker
+  // prompts from <root>/agents/<name>.md (omc ask --agent-prompt, CLI teams).
+  rmSync(join(ROOT, 'subagents'), { recursive: true, force: true });
   rmSync(join(ROOT, 'agents'), { recursive: true, force: true });
   for (const file of readdirSync(join(upstream, 'agents'))) {
     if (!file.endsWith('.md') || file === 'AGENTS.md') continue;
     const name = file.replace(/\.md$/, '');
-    writeFile(join(ROOT, 'agents', `omc-${name}.md`), convertAgent(name, readFileSync(join(upstream, 'agents', file), 'utf-8')));
+    const source = readFileSync(join(upstream, 'agents', file), 'utf-8');
+    writeFile(join(ROOT, 'subagents', `omc-${name}.md`), convertAgent(name, source));
+    writeFile(join(ROOT, 'agents', file), convertText(source));
     report.agents += 1;
   }
 

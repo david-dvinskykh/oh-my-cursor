@@ -159,7 +159,7 @@ export function install(opts, root = ROOT) {
 
   const items = [
     [join(root, 'rules', 'omc.mdc'), join(cursorDir, 'rules', 'omc.mdc')],
-    ...listEntries(join(root, 'agents')).map((f) => [join(root, 'agents', f), join(cursorDir, 'agents', f)]),
+    ...listEntries(join(root, 'subagents')).map((f) => [join(root, 'subagents', f), join(cursorDir, 'agents', f)]),
     ...listEntries(join(root, 'skills')).map((f) => [join(root, 'skills', f), join(cursorDir, 'skills', f)]),
     ...listEntries(join(root, 'commands')).map((f) => [join(root, 'commands', f), join(cursorDir, 'commands', f)]),
   ];
