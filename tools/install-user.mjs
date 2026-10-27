@@ -11,7 +11,7 @@
  *   --cursor-dir <dir>   Cursor user config dir (default ~/.cursor)
  *   --project <dir>      also install the orchestration rule into <dir>/.cursor/rules
  *   --force              overwrite skills/agents/commands that exist but were not installed by this script
- *   --deps               run `npm install --omit=dev --ignore-scripts` in the checkout
+ *   --deps               install runtime dependencies in the checkout (`npm ci --omit=dev --ignore-scripts`)
  *
  * What it writes (paths point at this checkout, so keep it where it is):
  *   <cursor-dir>/rules/omc.mdc, agents/omc-*.md, skills/<name>/, commands/*.md
@@ -190,7 +190,7 @@ export function install(opts, root = ROOT) {
   }
 
   if (opts.deps && !opts.dryRun) {
-    const res = spawnSync('npm', ['--prefix', root, 'install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { stdio: 'inherit', shell: process.platform === 'win32' });
+    const res = spawnSync('npm', ['--prefix', root, existsSync(join(root, 'package-lock.json')) ? 'ci' : 'install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { stdio: 'inherit', shell: process.platform === 'win32' });
     log.push(res.status === 0 ? 'runtime dependencies installed' : `npm install failed (exit ${res.status})`);
   }
 

@@ -85,6 +85,7 @@ mcp.json                     omc MCP server
 cursor/                      hook adapter, tests, hand-ported overrides
 tools/port/                  converter + PORTING.md (how to sync with upstream)
 scripts/ dist/ bridge/ templates/   OMC runtime (upstream, unchanged)
+package.json + package-lock.json    runtime-only dependencies (upstream manifest: tools/port/upstream-package.json)
 ```
 
 Kill switches: `DISABLE_OMC=1` disables all hooks, `OMC_SKIP_HOOKS=<names>` skips some, `OMC_CURSOR_DEBUG=1` logs adapter errors to stderr.
