@@ -68,6 +68,12 @@ test('cursorizeText rewrites invocations into Cursor forms', () => {
   );
   assert.equal(cursorizeText('Run /oh-my-claudecode:plan --consensus'), 'Run /omc-plan --consensus');
   assert.ok(isActivationContext('[MAGIC KEYWORDS DETECTED: RALPH, TDD]'));
+});
+
+test('HUD setup notices are dropped (no statusline in Cursor)', async () => {
+  const { cursorizeResponse } = await import('../lib/translate.mjs');
+  const out = cursorizeResponse({ additional_context: 'keep me\n<system-reminder>\n[OMC] HUD not configured (HUD script missing). Run /hud setup then restart Claude Code.\n</system-reminder>' });
+  assert.equal(out.additional_context, 'keep me');
   assert.ok(!isActivationContext('plain reminder'));
 });
 

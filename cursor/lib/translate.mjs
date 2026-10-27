@@ -425,11 +425,23 @@ export function cursorizeText(text) {
     .replace(/\bClaude Code\b/g, 'Cursor');
 }
 
+/**
+ * Drop runtime notices that only make sense under Claude Code (Cursor has no
+ * statusline, so the HUD can never be "configured").
+ */
+export function dropClaudeOnlyNotices(text) {
+  if (typeof text !== 'string' || !text) return text;
+  return text
+    .replace(/<system-reminder>\s*\[OMC\] HUD not configured[^<]*<\/system-reminder>\s*/g, '')
+    .replace(/^\[OMC\] HUD not configured.*$\n?/gm, '')
+    .trim();
+}
+
 /** Apply cursorizeText to every string field of a Cursor response. */
 export function cursorizeResponse(response) {
   const out = {};
   for (const [key, value] of Object.entries(response || {})) {
-    out[key] = typeof value === 'string' ? cursorizeText(value) : value;
+    out[key] = typeof value === 'string' ? cursorizeText(dropClaudeOnlyNotices(value)) : value;
   }
   return out;
 }
