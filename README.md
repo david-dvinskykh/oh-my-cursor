@@ -39,7 +39,8 @@ It copies the rule, agents, skills and commands into `~/.cursor/{rules,agents,sk
 
 - Update: `git -C ~/oh-my-cursor pull && node ~/oh-my-cursor/tools/install-user.mjs`
 - Remove: `node ~/oh-my-cursor/tools/install-user.mjs --uninstall`
-- If the orchestration rule does not show up from `~/.cursor/rules`, install it per project with `--project <repo>` (writes `<repo>/.cursor/rules/omc.mdc`) or paste `rules/omc.mdc` into *Cursor Settings → Rules → User Rules*.
+- **Set up each repository you use with OMC:** `node ~/oh-my-cursor/tools/install-user.mjs --project ~/path/to/repo` (repeatable). A user-level MCP server cannot tell which workspace a window has open, so its `state_*` tools would write to `~/.omc`; `--project` adds an `omc` server bound to that repo in `<repo>/.cursor/mcp.json` plus the rule in `<repo>/.cursor/rules/omc.mdc`, lists both and `.omc/` in `<repo>/.git/info/exclude` (nothing shows up in `git status`), and removes the user-level `omc` server (`--keep-user-mcp` keeps it). Projects are remembered for later runs.
+- If the orchestration rule does not show up from `~/.cursor/rules`, the per-project copy from `--project` covers it, or paste `rules/omc.mdc` into *Cursor Settings → Rules → User Rules*.
 - An org policy can still disable user hooks or MCP servers; `/omc-doctor` shows what is active.
 
 Requirements: Cursor with plugins and hooks, Node.js 20+, git. Optional: `jq` (setup progress tracking), tmux and `cursor-agent` / `codex` / `gemini` CLIs for external CLI teams (`omc team N:cursor …`).

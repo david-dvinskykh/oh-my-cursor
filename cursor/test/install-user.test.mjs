@@ -18,7 +18,7 @@ function setup() {
   return cursorDir;
 }
 
-const opts = (cursorDir, extra = {}) => ({ cursorDir, project: null, force: false, dryRun: false, uninstall: false, deps: false, ...extra });
+const opts = (cursorDir, extra = {}) => ({ cursorDir, projects: [], force: false, dryRun: false, uninstall: false, deps: false, keepUserMcp: false, ...extra });
 
 test('install merges hooks and MCP without touching user entries, and is idempotent', () => {
   const cursorDir = setup();
@@ -66,4 +66,34 @@ test('dry run changes nothing', () => {
   assert.equal(readFileSync(join(cursorDir, 'hooks.json'), 'utf-8'), before);
   assert.ok(!existsSync(join(cursorDir, 'agents')));
   assert.ok(result.log.some((line) => line.startsWith('would')));
+});
+
+test('--project binds a project-level omc server to the repo and drops the user-level one', () => {
+  const cursorDir = setup();
+  const repo = mkdtempSync(join(tmpdir(), 'omc-repo-'));
+  mkdirSync(join(repo, '.git', 'info'), { recursive: true });
+  writeFileSync(join(repo, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  install(opts(cursorDir));
+  install(opts(cursorDir, { projects: [repo] }));
+
+  const projectMcp = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf-8'));
+  assert.equal(projectMcp.mcpServers.omc.env.OMC_WORKSPACE, repo);
+  assert.ok(existsSync(join(repo, '.cursor', 'rules', 'omc.mdc')));
+  const exclude = readFileSync(join(repo, '.git', 'info', 'exclude'), 'utf-8');
+  assert.match(exclude, /^\.cursor\/mcp\.json$/m);
+  assert.match(exclude, /^\.omc\/$/m);
+
+  const userMcp = JSON.parse(readFileSync(join(cursorDir, 'mcp.json'), 'utf-8'));
+  assert.equal(userMcp.mcpServers.omc, undefined, 'user-level omc removed');
+  assert.deepEqual(userMcp.mcpServers.github, { command: 'gh-mcp' });
+
+  // A later plain run remembers the project and keeps the user-level server off.
+  install(opts(cursorDir));
+  assert.equal(JSON.parse(readFileSync(join(cursorDir, 'mcp.json'), 'utf-8')).mcpServers.omc, undefined);
+  assert.ok(existsSync(join(repo, '.cursor', 'rules', 'omc.mdc')));
+  assert.equal(readFileSync(join(repo, '.git', 'info', 'exclude'), 'utf-8').match(/oh-my-cursor/g).length, 1, 'excludes added once');
+
+  uninstall(opts(cursorDir));
+  assert.equal(JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf-8')).mcpServers.omc, undefined);
+  assert.ok(!existsSync(join(repo, '.cursor', 'rules', 'omc.mdc')));
 });

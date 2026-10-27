@@ -9,7 +9,13 @@
  *
  * Options:
  *   --cursor-dir <dir>   Cursor user config dir (default ~/.cursor)
- *   --project <dir>      also install the orchestration rule into <dir>/.cursor/rules
+ *   --project <dir>      set up a repository (repeatable): rule in <dir>/.cursor/rules and a
+ *                        project-level "omc" MCP server bound to <dir>, so OMC state tools
+ *                        work on that repo; both paths go to <dir>/.git/info/exclude.
+ *                        Once any project is set up, the user-level "omc" server is removed
+ *                        (it would duplicate the tools and point at ~/.omc). Projects are
+ *                        remembered, so later runs without --project keep them.
+ *   --keep-user-mcp      keep the user-level "omc" server even when projects are set up
  *   --force              overwrite skills/agents/commands that exist but were not installed by this script
  *   --deps               install runtime dependencies in the checkout (`npm ci --omit=dev --ignore-scripts`)
  *
@@ -32,11 +38,12 @@ export const ROOT = resolve(HERE, '..');
 const MARKER = 'oh-my-cursor';
 
 function parseArgs(argv) {
-  const opts = { cursorDir: join(homedir(), '.cursor'), project: null, force: false, dryRun: false, uninstall: false, deps: false };
+  const opts = { cursorDir: join(homedir(), '.cursor'), projects: [], force: false, dryRun: false, uninstall: false, deps: false, keepUserMcp: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--cursor-dir') opts.cursorDir = resolve(argv[++i]);
-    else if (arg === '--project') opts.project = resolve(argv[++i]);
+    else if (arg === '--project') opts.projects.push(resolve(argv[++i]));
+    else if (arg === '--keep-user-mcp') opts.keepUserMcp = true;
     else if (arg === '--force') opts.force = true;
     else if (arg === '--dry-run') opts.dryRun = true;
     else if (arg === '--uninstall') opts.uninstall = true;
@@ -115,7 +122,7 @@ export function mergeHooks(existing, ours) {
   return merged;
 }
 
-export function omcServer(root = ROOT) {
+export function omcServer(root = ROOT, workspace = '${workspaceFolder}') {
   return {
     command: 'node',
     args: [join(root, 'cursor', 'mcp-launch.cjs')],
@@ -123,9 +130,52 @@ export function omcServer(root = ROOT) {
       CLAUDE_PLUGIN_ROOT: root,
       CLAUDE_CONFIG_DIR: '~/.cursor/omc',
       OMC_HOST: 'cursor',
-      OMC_WORKSPACE: '${workspaceFolder}',
+      OMC_WORKSPACE: workspace,
     },
   };
+}
+
+function isOurServer(server) {
+  return Array.isArray(server?.args) && server.args.some((arg) => String(arg).includes(MARKER));
+}
+
+function gitTracked(repo, rel) {
+  const res = spawnSync('git', ['-C', repo, 'ls-files', '--error-unmatch', rel], { stdio: 'ignore' });
+  return res.status === 0;
+}
+
+const EXCLUDE_LINES = ['.cursor/mcp.json', '.cursor/rules/omc.mdc', '.omc/'];
+
+function addGitExcludes(repo, log, dryRun) {
+  const gitDir = join(repo, '.git');
+  if (!existsSync(join(gitDir, 'info')) && !existsSync(join(gitDir, 'HEAD'))) return;
+  const file = join(gitDir, 'info', 'exclude');
+  const current = existsSync(file) ? readFileSync(file, 'utf-8') : '';
+  const have = new Set(current.split('\n').map((line) => line.trim()));
+  const missing = EXCLUDE_LINES.filter((line) => !have.has(line));
+  if (!missing.length) return;
+  if (dryRun) {
+    log.push(`would add ${missing.join(', ')} to ${file}`);
+    return;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  const prefix = current && !current.endsWith('\n') ? '\n' : '';
+  writeFileSync(file, `${current}${prefix}# oh-my-cursor (local only)\n${missing.join('\n')}\n`);
+  log.push(`excluded ${missing.join(', ')} in ${file}`);
+}
+
+/** Project-level MCP server bound to the repo; returns false when skipped. */
+function installProjectMcp(repo, root, opts, log, skipped) {
+  const mcpPath = join(repo, '.cursor', 'mcp.json');
+  if (existsSync(mcpPath) && gitTracked(repo, '.cursor/mcp.json') && !opts.force) {
+    skipped.push(`${mcpPath} (tracked by git; add the omc server by hand or use --force)`);
+    return false;
+  }
+  const mcp = readJson(mcpPath, {});
+  mcp.mcpServers = { ...(mcp.mcpServers || {}), omc: omcServer(root, repo) };
+  writeJsonWithBackup(mcpPath, mcp, log, opts.dryRun);
+  addGitExcludes(repo, log, opts.dryRun);
+  return true;
 }
 
 function listEntries(dir) {
@@ -163,7 +213,8 @@ export function install(opts, root = ROOT) {
     ...listEntries(join(root, 'skills')).map((f) => [join(root, 'skills', f), join(cursorDir, 'skills', f)]),
     ...listEntries(join(root, 'commands')).map((f) => [join(root, 'commands', f), join(cursorDir, 'commands', f)]),
   ];
-  if (opts.project) items.push([join(root, 'rules', 'omc.mdc'), join(opts.project, '.cursor', 'rules', 'omc.mdc')]);
+  const projects = [...new Set([...(previous.projects || []), ...(opts.projects || [])])].filter((dir) => existsSync(dir));
+  for (const repo of projects) items.push([join(root, 'rules', 'omc.mdc'), join(repo, '.cursor', 'rules', 'omc.mdc')]);
 
   for (const [src, dest] of items) {
     if (copyItem(src, dest, manifestSet, opts, log, skipped)) installed.push(dest);
@@ -179,14 +230,22 @@ export function install(opts, root = ROOT) {
   const hooksPath = join(cursorDir, 'hooks.json');
   writeJsonWithBackup(hooksPath, mergeHooks(readJson(hooksPath, {}), userHookEntries(root)), log, opts.dryRun);
 
+  for (const repo of projects) installProjectMcp(repo, root, opts, log, skipped);
+
+  // The user-level server cannot see which workspace a window has open (Cursor
+  // does not expand ${workspaceFolder} there), so its state tools fall back to
+  // ~/.omc. With project servers in place it would only duplicate the tools.
+  const useUserMcp = projects.length === 0 || opts.keepUserMcp;
   const mcpPath = join(cursorDir, 'mcp.json');
   const mcp = readJson(mcpPath, {});
-  mcp.mcpServers = { ...(mcp.mcpServers || {}), omc: omcServer(root) };
-  writeJsonWithBackup(mcpPath, mcp, log, opts.dryRun);
+  mcp.mcpServers = { ...(mcp.mcpServers || {}) };
+  if (useUserMcp) mcp.mcpServers.omc = omcServer(root);
+  else if (isOurServer(mcp.mcpServers.omc)) delete mcp.mcpServers.omc;
+  if (useUserMcp || existsSync(mcpPath)) writeJsonWithBackup(mcpPath, mcp, log, opts.dryRun);
 
   if (!opts.dryRun) {
     mkdirSync(dirname(manifestPath), { recursive: true });
-    writeFileSync(manifestPath, `${JSON.stringify({ root, installedAt: new Date().toISOString(), files: installed }, null, 2)}\n`);
+    writeFileSync(manifestPath, `${JSON.stringify({ root, installedAt: new Date().toISOString(), files: installed, projects, userMcp: useUserMcp }, null, 2)}\n`);
   }
 
   if (opts.deps && !opts.dryRun) {
@@ -201,7 +260,7 @@ export function install(opts, root = ROOT) {
     log.push(res.status === 0 ? 'runtime dependencies installed' : `npm install failed (exit ${res.status})`);
   }
 
-  return { log, skipped, installed };
+  return { log, skipped, installed, projects };
 }
 
 export function uninstall(opts) {
@@ -216,10 +275,10 @@ export function uninstall(opts) {
   }
   const hooksPath = join(cursorDir, 'hooks.json');
   if (existsSync(hooksPath)) writeJsonWithBackup(hooksPath, mergeHooks(readJson(hooksPath, {}), {}), log, opts.dryRun);
-  const mcpPath = join(cursorDir, 'mcp.json');
-  if (existsSync(mcpPath)) {
+  for (const mcpPath of [join(cursorDir, 'mcp.json'), ...(manifest.projects || []).map((repo) => join(repo, '.cursor', 'mcp.json'))]) {
+    if (!existsSync(mcpPath)) continue;
     const mcp = readJson(mcpPath, {});
-    if (mcp.mcpServers?.omc?.args?.some((arg) => String(arg).includes(MARKER))) {
+    if (isOurServer(mcp.mcpServers?.omc)) {
       delete mcp.mcpServers.omc;
       writeJsonWithBackup(mcpPath, mcp, log, opts.dryRun);
     }
@@ -253,6 +312,9 @@ function main() {
     }
     if (!opts.uninstall && !opts.dryRun) {
       process.stdout.write(`\nInstalled ${result.installed.length} items from ${ROOT}.\nNext: reload Cursor (Developer: Reload Window), then run /omc-setup in a chat.\n`);
+      if (!result.projects?.length) {
+        process.stdout.write('Tip: add --project <repo> for each repository you use with OMC so its MCP state tools work on that repo (the user-level server falls back to ~/.omc).\n');
+      }
     }
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
