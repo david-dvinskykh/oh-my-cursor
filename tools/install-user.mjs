@@ -190,7 +190,14 @@ export function install(opts, root = ROOT) {
   }
 
   if (opts.deps && !opts.dryRun) {
-    const res = spawnSync('npm', ['--prefix', root, existsSync(join(root, 'package-lock.json')) ? 'ci' : 'install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { stdio: 'inherit', shell: process.platform === 'win32' });
+    const npm = (args) => spawnSync('npm', ['--prefix', root, ...args, '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { stdio: 'inherit', shell: process.platform === 'win32' });
+    let res = existsSync(join(root, 'package-lock.json')) ? npm(['ci']) : { status: 1 };
+    if (res.status !== 0) {
+      // Mirrors (e.g. a corporate Nexus) may not carry the exact versions pinned
+      // in the lockfile; resolve against what the configured registry has.
+      log.push('npm ci failed or no lockfile: retrying with npm install --no-package-lock');
+      res = npm(['install', '--no-package-lock']);
+    }
     log.push(res.status === 0 ? 'runtime dependencies installed' : `npm install failed (exit ${res.status})`);
   }
 

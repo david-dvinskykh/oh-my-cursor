@@ -80,11 +80,13 @@ Hooks, the CLI and parts of the MCP server need the runtime's npm dependencies i
 
 ```bash
 node --version
-npm --prefix "$OMC_PLUGIN_ROOT" ci --omit=dev --ignore-scripts --no-audit --no-fund   # lockfile install; --prefix keeps the shell in the project
+npm --prefix "$OMC_PLUGIN_ROOT" ci --omit=dev --ignore-scripts --no-audit --no-fund \
+  || npm --prefix "$OMC_PLUGIN_ROOT" install --no-package-lock --omit=dev --ignore-scripts --no-audit --no-fund
+# --prefix keeps the shell in the project; the fallback resolves versions a registry mirror actually has
 test -d "$OMC_PLUGIN_ROOT/node_modules/commander" && echo "runtime dependencies: OK"
 ```
 
-The plugin ships a runtime-only `package.json` plus `package-lock.json`, so `npm ci` installs a fixed set (~150 packages) and works through corporate registries such as Nexus (npm swaps the lockfile's registry host for the configured one). If `npm ci` fails, report the error and stop; do not fall back to the upstream dev manifest. `--ignore-scripts` is deliberate; native optional modules (`better-sqlite3`, `@ast-grep/napi`) may be skipped, and OMC degrades gracefully without them (`ast_grep_*` tools report unavailability).
+The plugin ships a runtime-only `package.json` plus `package-lock.json`, so `npm ci` installs a fixed set (~150 packages) and works through corporate registries such as Nexus (npm swaps the lockfile's registry host for the configured one). If a registry mirror lacks a pinned version (HTTP 404 on a tarball), the second command resolves against what the mirror has. If both fail, report the error and stop; do not fall back to the upstream dev manifest. `--ignore-scripts` is deliberate; native optional modules (`better-sqlite3`, `@ast-grep/napi`) may be skipped, and OMC degrades gracefully without them (`ast_grep_*` tools report unavailability).
 
 Save progress (only if `jq` is installed): `bash "$OMC_PLUGIN_ROOT/scripts/setup-progress.sh" save 2 cursor`
 
