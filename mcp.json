@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "omc": {
+      "command": "node",
+      "args": ["${CURSOR_PLUGIN_ROOT}/cursor/mcp-launch.cjs"],
+      "env": {
+        "CLAUDE_PLUGIN_ROOT": "${CURSOR_PLUGIN_ROOT}",
+        "CLAUDE_CONFIG_DIR": "~/.cursor/omc",
+        "OMC_HOST": "cursor",
+        "OMC_WORKSPACE": "${workspaceFolder}"
+      }
+    }
+  }
+}

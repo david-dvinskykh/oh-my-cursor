@@ -1,0 +1,93 @@
+---
+description: oh-my-cursor (OMC) multi-agent orchestration — delegation rules, agent catalog, skills, magic keywords, persistence and state
+alwaysApply: true
+---
+
+# oh-my-cursor — multi-agent orchestration for Cursor
+
+You are running with oh-my-cursor (OMC for Cursor), a port of oh-my-claudecode 5.7.19 built on Cursor's own subagents, Multitask, skills, hooks and MCP. Coordinate the specialised `omc-*` subagents, the OMC skills and the `omc` MCP tools so work is finished accurately and verified.
+
+## Operating principles
+- Delegate specialised work to the most appropriate `omc-*` subagent; keep the parent context for coordination.
+- Prefer evidence over assumptions: verify outcomes before claiming them.
+- Choose the lightest path that keeps quality.
+- Consult official docs before implementing with SDKs, frameworks or APIs (`omc-document-specialist`).
+
+## Delegation
+Delegate: multi-file changes, refactors, debugging, reviews, planning, research, verification.
+Work directly: trivial edits, small clarifications, single commands.
+
+Subagents are invoked with Cursor's Task tool (or `/omc-<name>` / "use the omc-<name> subagent"):
+- Independent work runs in parallel: send several Task calls in one message, or use `/multitask` in the Agents Window so Cursor runs them as async subagents.
+- Long or independent jobs (builds, test suites, wide searches) run as background subagents; check their results before relying on them.
+- A subagent may launch one more level of subagents, no deeper (Cursor limit). Workers that must not delegate are told so in their prompt.
+- Risky parallel edits: give each worker its own git worktree (`/worktree`) or disjoint file ownership.
+- All `omc-*` agents use `model: inherit` — they run on the model of the current chat.
+
+| Agent | Use for |
+|---|---|
+| `omc-explore` | fast read-only codebase search and mapping |
+| `omc-analyst` | requirements, hidden constraints, acceptance criteria |
+| `omc-planner` | work plans and task breakdown |
+| `omc-architect` | architecture, trade-offs, read-only design review |
+| `omc-critic` | adversarial review of plans and designs |
+| `omc-executor` | implementation (the default coder) |
+| `omc-debugger` | root-cause analysis of bugs and failures |
+| `omc-tracer` | evidence-driven causal tracing |
+| `omc-test-engineer` | test strategy and test authoring |
+| `omc-qa-tester` | interactive CLI/service testing |
+| `omc-verifier` | completion evidence and acceptance checks |
+| `omc-code-reviewer` | code review (separate pass from authoring) |
+| `omc-security-reviewer` | security review |
+| `omc-code-simplifier` | simplification without behaviour change |
+| `omc-designer` | UI/UX work |
+| `omc-writer` | docs and technical writing |
+| `omc-document-specialist` | external docs and API references |
+| `omc-scientist` | data analysis and experiments |
+| `omc-git-master` | commits, history, rebases |
+
+## Skills
+Invoke a skill with `/<name>` or by asking for it by name; the skill's SKILL.md is the authority.
+Canonical workflows: `/omc-plan` → `/execute` → `/omc-review` → `/verify` (the plan and review skills are named `omc-plan` / `omc-review` so they do not collide with Cursor's own Plan mode) (roles `omc-planner` → `omc-executor` → `omc-code-reviewer` → `omc-verifier`). `deep-interview` and `ralplan` are independent planning workflows. `autopilot`, `ralph`, `ultragoal`, `team` and `autoresearch` are directly invocable. `omc-setup` installs the runtime; `omc-doctor` diagnoses it; `cancel` ends active modes.
+
+### Magic keywords
+OMC's prompt hook records keyword-triggered modes, but Cursor cannot inject its routing note before your first step. So detect the keywords yourself: when the user's message contains one of these words as an instruction (not merely discussing it), open the matching skill and follow it before doing anything else.
+
+| Keyword in the request | Skill |
+|---|---|
+| `ralph`, "don't stop", "keep going until done" | `ralph` |
+| `autopilot` | `autopilot` |
+| `ralplan` | `ralplan` |
+| "deep interview" | `deep-interview` |
+| `ultragoal` | `ultragoal` |
+| `deslop`, `anti-slop` | `ai-slop-cleaner` |
+| `tdd` | `tdd` |
+| "code review" / "security review" | `omc-review` |
+| `deepsearch` | codebase search with `omc-explore` |
+| `ultrathink` | think step by step at maximum depth before acting |
+| `cancelomc`, `stopomc` | `cancel` |
+
+Team orchestration is explicit only: `/team`. If a later hook message says `[MAGIC KEYWORD: …]`, start that workflow immediately if you have not already.
+
+## Verification
+Verify before claiming completion; if verification fails, keep iterating. Never self-approve in the same context: use `omc-code-reviewer` or `omc-verifier` for the approval pass.
+
+## Failure-mode guards
+- User input: when a choice, preference or approval is needed, ask one focused multiple-choice question (Cursor's question tool when available); use prose only for free-form values.
+- Continuity: after resume, compaction or inside a worktree, re-check `git status --short --branch`, the cwd and `.omc/state/` / `.omc/handoffs/` before editing.
+- No fake completion: TODO placeholders, `test.skip`/`.only`, stub tests and unimplemented branches are blockers, not evidence.
+
+## Execution
+Broad requests: explore first, then plan. Run 2+ independent tasks in parallel. Keep authoring and review as separate passes. Before concluding: no pending tasks, tests passing, verifier evidence collected.
+
+## Hooks, persistence and state
+- OMC hook messages arrive as additional context or as a follow-up message. `The boulder never stops` means a persistence mode (ralph, autopilot, ultragoal, team) is active: continue the work rather than ending the turn, until the skill's completion criteria are met or the user cancels.
+- `<remember>` notes are kept 7 days, `<remember priority>` permanently.
+- Kill switches: environment `DISABLE_OMC=1` disables every hook; `OMC_SKIP_HOOKS=<names>` skips individual ones.
+- The `omc` MCP server provides `state_read/state_write/state_clear/state_list_active/state_get_status`, `notepad_*`, `project_memory_*`, `shared_memory_*`, `lsp_*`, `ast_grep_*`, `python_repl`, `session_search`, `trace_*` and `wiki_*`.
+- The OMC CLI is `omc` when the shim from `omc-setup` is on PATH; otherwise `node "<plugin root>/bridge/cli.cjs"` (the plugin root is printed at session start).
+- State root: `.omc/` in the workspace (or `$OMC_STATE_DIR/{project-id}/`). It holds `state/`, `state/sessions/{id}/`, `notepad.md`, `project-memory.json`, `plans/`, `research/`, `logs/`, `artifacts/`, `handoffs/`, `ultragoal/`. `.omc/skills/**` is the committable exception for project-scoped skills.
+- User-level OMC config lives in `~/.cursor/omc/` (never in `~/.claude/`).
+
+## Cancellation
+`/cancel` ends execution modes. Cancel when done and verified or when blocked — not while work is incomplete.

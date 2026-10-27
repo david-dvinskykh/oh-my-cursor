@@ -1,0 +1,6 @@
+node_modules/
+.omc/*
+!.omc/skills/
+!.omc/skills/**
+*.log
+.DS_Store

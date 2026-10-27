@@ -1,0 +1,4 @@
+# Paths removed after the mechanical port (relative to the plugin root).
+# omc-setup is a single hand-ported SKILL.md; the Claude Code phase files do not apply.
+skills/omc-setup/phases
+commands/compact.md

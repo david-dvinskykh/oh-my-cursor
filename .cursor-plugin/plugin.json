@@ -1,0 +1,26 @@
+{
+  "name": "oh-my-cursor",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestration for Cursor: OMC (oh-my-claudecode 5.7.19) agents, skills, hooks and MCP tools rebuilt on Cursor subagents, Multitask, hooks and plugins.",
+  "author": {
+    "name": "David Dvinskykh"
+  },
+  "homepage": "https://github.com/david-dvinskykh/oh-my-cursor",
+  "repository": "https://github.com/david-dvinskykh/oh-my-cursor",
+  "license": "MIT",
+  "keywords": [
+    "cursor",
+    "plugin",
+    "multi-agent",
+    "orchestration",
+    "subagents",
+    "multitask",
+    "oh-my-claudecode"
+  ],
+  "rules": "rules",
+  "agents": "agents",
+  "skills": "skills",
+  "commands": "commands",
+  "hooks": "hooks/hooks.json",
+  "mcpServers": "mcp.json"
+}

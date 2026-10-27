@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" sessionStart",
+        "timeout": 35
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" beforeSubmitPrompt",
+        "timeout": 70
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" preToolUse",
+        "timeout": 20
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" beforeShellExecution",
+        "timeout": 15
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" postToolUse",
+        "timeout": 20
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" postToolUseFailure",
+        "timeout": 15
+      }
+    ],
+    "subagentStart": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" subagentStart",
+        "timeout": 15
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" subagentStop",
+        "timeout": 20,
+        "loop_limit": 5
+      }
+    ],
+    "preCompact": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" preCompact",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" stop",
+        "timeout": 40,
+        "loop_limit": 100
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/cursor/hook.mjs\" sessionEnd",
+        "timeout": 15
+      }
+    ]
+  }
+}
