@@ -25,6 +25,23 @@ git clone https://github.com/david-dvinskykh/oh-my-cursor ~/.cursor/plugins/loca
 2. In a chat run `/omc-setup`. It installs the runtime's npm dependencies inside the plugin folder (`npm install --omit=dev --ignore-scripts`), the `omc` CLI shim (`~/.local/bin/omc`), checks hooks/MCP, and creates `~/.cursor/omc`.
 3. If the Claude Code version of OMC is installed too, turn off *Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs*, otherwise OMC hooks and skills run twice.
 
+### Install without the plugin system
+
+If Cursor says local plugin import is blocked (the Enterprise admin setting *Allow Local Plugin Imports* is off), install the same components as plain user-level Cursor config:
+
+```bash
+git clone https://github.com/david-dvinskykh/oh-my-cursor ~/oh-my-cursor
+node ~/oh-my-cursor/tools/install-user.mjs --dry-run   # preview
+node ~/oh-my-cursor/tools/install-user.mjs --deps      # install + runtime dependencies
+```
+
+It copies the rule, agents, skills and commands into `~/.cursor/{rules,agents,skills,commands}` and merges one oh-my-cursor entry per event into `~/.cursor/hooks.json` and the `omc` server into `~/.cursor/mcp.json` (backups are written first; your own hooks and servers stay). Existing skills with the same name are skipped unless you pass `--force`. Keep the checkout where it is — the hooks point at it. Then reload the window and run `/omc-setup`.
+
+- Update: `git -C ~/oh-my-cursor pull && node ~/oh-my-cursor/tools/install-user.mjs`
+- Remove: `node ~/oh-my-cursor/tools/install-user.mjs --uninstall`
+- If the orchestration rule does not show up from `~/.cursor/rules`, install it per project with `--project <repo>` (writes `<repo>/.cursor/rules/omc.mdc`) or paste `rules/omc.mdc` into *Cursor Settings → Rules → User Rules*.
+- An org policy can still disable user hooks or MCP servers; `/omc-doctor` shows what is active.
+
 Requirements: Cursor with plugins and hooks, Node.js 20+, git. Optional: `jq` (setup progress tracking), tmux and `cursor-agent` / `codex` / `gemini` CLIs for external CLI teams (`omc team N:cursor …`).
 
 Update: `git -C ~/.cursor/plugins/local/oh-my-cursor pull`, reload the window, `/omc-setup` → *Refresh runtime*.
