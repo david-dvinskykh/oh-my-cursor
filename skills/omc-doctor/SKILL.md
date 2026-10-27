@@ -18,6 +18,30 @@ Conventions used below:
   only inspected to detect a Claude Code side-install or legacy files.
 - Status levels: OK, INFO, WARN, CRITICAL.
 
+## Step 0: Install mode (decides what counts as a duplicate)
+
+oh-my-cursor is installed one of two ways:
+
+```bash
+MANIFEST="$HOME/.cursor/omc/install-manifest.json"
+[ -f "$MANIFEST" ] && node -e 'const m=require(process.argv[1]);console.log("MODE: user-level (tools/install-user.mjs), root:",m.root,"items:",m.files.length)' "$MANIFEST" \
+  || echo "MODE: plugin"
+[ "$(cd "$PWD" && pwd -P)" = "$(cd "$HOME" && pwd -P)" ] && echo "NOTE: workspace is the home directory; .cursor/ here IS ~/.cursor/"
+```
+
+- **plugin** — loaded from `~/.cursor/plugins/local/oh-my-cursor` or a marketplace; hooks,
+  MCP, agents and skills come from the plugin. Copies in `~/.cursor` are duplicates.
+- **user-level** — used when local plugin import is blocked (Enterprise *Allow Local Plugin
+  Imports* off). The manifest lists the copied rule/agents/skills/commands; one hook entry
+  per event in `~/.cursor/hooks.json` and the `omc` server in `~/.cursor/mcp.json` are
+  expected. An empty `~/.cursor/plugins/local/oh-my-cursor` is normal in this mode, and the
+  root is the checkout named in the manifest. Do not report these as duplicates or
+  shadowing; report only items the manifest does not list, more than one oh-my-cursor
+  entry per event, or both modes active at once (plugin enabled **and** manifest present —
+  WARN: hooks fire twice; fix with `node <root>/tools/install-user.mjs --uninstall`).
+- When the workspace is the home directory, `.cursor/…` and `~/.cursor/…` are the same file:
+  check it once, never count it twice.
+
 ## Step 1: Locate the plugin root and validate the manifest
 
 If the session context has no `Plugin root:` line, the sessionStart hook did not run
@@ -137,7 +161,7 @@ for f in "$HOME/.cursor/hooks.json" ".cursor/hooks.json"; do
 done
 ```
 
-Any match: WARN — duplicate OMC hook registration (manual cleanup, with consent).
+Count matches per event across *distinct* files (resolve paths with `pwd -P` / `realpath`). Plugin mode: any match is WARN — duplicate OMC hook registration. User-level mode: exactly one oh-my-cursor entry per event in `~/.cursor/hooks.json` is OK; more than one, or extra entries in a project `.cursor/hooks.json`, is WARN.
 
 ## Step 6: `omc` MCP server
 
@@ -158,7 +182,9 @@ for f in "$HOME/.cursor/mcp.json" ".cursor/mcp.json"; do
 done
 ```
 
-   Any match: WARN — a second OMC MCP server (duplicate tools, possibly another runtime version).
+   Plugin mode: any match is WARN — a second OMC MCP server. User-level mode: one `omc` entry
+   in `~/.cursor/mcp.json` pointing at `<root>/cursor/mcp-launch.cjs` is expected (OK); another
+   entry in a different file is WARN. Same file reached twice via the home workspace: count once.
 
 ## Step 7: OMC config dir `~/.cursor/omc`
 
@@ -289,8 +315,11 @@ plugin's versions:
 ls "$HOME/.cursor/agents" .cursor/agents "$HOME/.cursor/skills" .cursor/skills 2>/dev/null
 ```
 
-Flag only `omc-*.md` agent files and skill folders with the OMC skill names above:
-WARN — stale copy shadows the plugin. Anything else is user content: OK.
+Plugin mode: flag only `omc-*.md` agent files and skill folders with the OMC skill names
+above: WARN — stale copy shadows the plugin. Anything else is user content: OK.
+User-level mode: these copies are the installation. OK if they are listed in the manifest;
+INFO "out of date — re-run `node <root>/tools/install-user.mjs`" if the checkout has newer
+commits than the manifest's `installedAt`; WARN only for OMC-named items not in the manifest.
 
 ---
 
